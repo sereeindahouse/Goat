@@ -7,6 +7,7 @@
 - [Төслийн архитектур ба кодын бүтэц](docs/01-project-architecture.md)
 - [Backend, MongoDB, CRUD ба API](docs/02-backend-data-and-api.md)
 - [Frontend, tRPC hooks ба AI/RAG](docs/03-frontend-ai-and-learning.md)
+- [AI ба Admin эрхийн шинэчлэлт](docs/04-ai-admin-permissions-update.md)
 
 A long-scroll brutalist exhibition / gallery site with three cinematic sections:
 

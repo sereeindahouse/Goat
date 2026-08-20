@@ -15,6 +15,29 @@ export async function findUserById(id: number) {
   );
 }
 
+export async function listSafeUsers() {
+  const db = await getDb();
+  return db.collection<User>("users").find(
+    {},
+    { projection: { _id: 0, passwordHash: 0 } },
+  ).sort({ id: 1 }).toArray();
+}
+
+export async function deleteUserById(requesterId: number, targetId: number) {
+  const db = await getDb();
+  const target = await db.collection<User>("users").findOne({ id: targetId });
+  if (!target) return "not_found" as const;
+  if (target.id === requesterId) return "self" as const;
+
+  if (target.role === "admin") {
+    const adminCount = await db.collection<User>("users").countDocuments({ role: "admin" });
+    if (adminCount <= 1) return "last_admin" as const;
+  }
+
+  await db.collection<User>("users").deleteOne({ id: targetId });
+  return "deleted" as const;
+}
+
 export async function updateUserProfile(
   id: number,
   data: { name: string; avatar: string | null },
