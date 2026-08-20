@@ -11,7 +11,7 @@ import { POST_CATEGORIES } from '@contracts/covers'
 
 gsap.registerPlugin(ScrollTrigger)
 
-export type FeedPost = Post & { author: User; commentCount: number }
+export type FeedPost = Post & { author: User; commentCount: number; endorsementCount: number; viewCount: number }
 
 function distributeCards(posts: FeedPost[]) {
   const cols: FeedPost[][] = [[], [], [], []]
@@ -28,19 +28,27 @@ export default function GenerativeCascade() {
 
   const { data: posts, error, isLoading } = trpc.post.list.useQuery(
     { limit: 60 },
-    { retry: false },
+    { retry: false, refetchInterval: 10000 },
   )
   const hasPosts = !!posts && posts.length > 0
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('category'))
+  const [sortByLikes, setSortByLikes] = useState(searchParams.get('sort') === 'liked')
   const visiblePosts = useMemo(
-    () => posts?.filter((post) => !selectedCategory || post.category === selectedCategory) ?? [],
-    [posts, selectedCategory],
+    () => {
+      const filtered = posts?.filter((post) => !selectedCategory || post.category === selectedCategory) ?? []
+      return sortByLikes ? [...filtered].sort((a, b) => b.endorsementCount - a.endorsementCount) : filtered
+    },
+    [posts, selectedCategory, sortByLikes],
   )
 
   const chooseCategory = (category: string | null) => {
     setSelectedCategory(category)
-    if (category) setSearchParams({ category }, { replace: true })
-    else setSearchParams({}, { replace: true })
+    setSearchParams({ ...(category ? { category } : {}), ...(sortByLikes ? { sort: 'liked' } : {}) }, { replace: true })
+  }
+
+  const chooseSort = (liked: boolean) => {
+    setSortByLikes(liked)
+    setSearchParams({ ...(selectedCategory ? { category: selectedCategory } : {}), ...(liked ? { sort: 'liked' } : {}) }, { replace: true })
   }
 
   const stats = useMemo(() => {
@@ -256,6 +264,7 @@ export default function GenerativeCascade() {
               >
                 <div>нийтлэл: {stats.posts}</div>
                 <div>сэтгэгдэл: {stats.comments}</div>
+                <div>нийт 👍: {posts?.reduce((sum, p) => sum + p.endorsementCount, 0) ?? 0}</div>
                 <div>бичигч: {stats.authors}</div>
               </div>
             )}
@@ -264,6 +273,8 @@ export default function GenerativeCascade() {
                 АНГИЛЛААР ШҮҮХ
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <button type="button" onClick={() => chooseSort(false)} style={{ textAlign: 'left', border: 0, borderLeft: `3px solid ${!sortByLikes ? '#000' : 'transparent'}`, background: 'transparent', color: '#000', padding: '5px 8px', fontFamily: '"Space Mono", monospace', fontSize: '0.62rem', cursor: 'pointer' }}>ШИНЭЭР</button>
+                <button type="button" onClick={() => chooseSort(true)} style={{ textAlign: 'left', border: 0, borderLeft: `3px solid ${sortByLikes ? '#000' : 'transparent'}`, background: 'transparent', color: '#000', padding: '5px 8px', fontFamily: '"Space Mono", monospace', fontSize: '0.62rem', cursor: 'pointer' }}>ХАМГИЙН ИХ 👍</button>
                 <button
                   type="button"
                   onClick={() => chooseCategory(null)}
@@ -502,6 +513,8 @@ function PostCard({ post }: { post: FeedPost }) {
           }}
         >
           <MessageSquare size={12} /> {post.commentCount}
+          <span title="Ур чадварын endorsement">👍 {post.endorsementCount}</span>
+          <span title="Үзсэн тоо">◉ {post.viewCount}</span>
         </span>
       </div>
     </article>

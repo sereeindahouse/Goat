@@ -21,6 +21,9 @@ export async function getDb(): Promise<Db> {
       database.collection("users").createIndex({ unionId: 1 }, { unique: true }),
       database.collection("posts").createIndex({ createdAt: -1 }),
       database.collection("comments").createIndex({ postId: 1, createdAt: 1 }),
+      database.collection("guestbook").createIndex({ createdAt: -1 }),
+      database.collection("postViews").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+      database.collection("postEndorsements").createIndex({ postId: 1, userId: 1 }, { unique: true }),
     ]);
     await database.collection("posts").updateMany(
       { category: { $nin: ["Технологи", "Амьдрал", "Урлаг", "Аялал", "Бодлого"] } },

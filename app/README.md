@@ -1,5 +1,13 @@
 # Shader Painting Frontend Template
 
+## Блогсор project documentation
+
+Энэ repository нь анхны gallery template-ээс өргөжсөн full-stack Blogсор аппликейшн болсон. Бодит одоогийн кодын бүтэц болон core concept-уудыг дараах баримтуудаас уншина уу:
+
+- [Төслийн архитектур ба кодын бүтэц](docs/01-project-architecture.md)
+- [Backend, MongoDB, CRUD ба API](docs/02-backend-data-and-api.md)
+- [Frontend, tRPC hooks ба AI/RAG](docs/03-frontend-ai-and-learning.md)
+
 A long-scroll brutalist exhibition / gallery site with three cinematic sections:
 
 1. **Hero** — full-viewport WebGL shader applied to a source image (noise-displaced UVs → oil-painting fluid flow), with a typewritten subtitle and a CTA button.

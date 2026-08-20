@@ -24,8 +24,22 @@ export interface Post {
   content: string;
   category: string;
   coverImage: string | null;
+  endorsementCount: number;
+  viewCount: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PostView {
+  postId: number;
+  userId: number;
+  createdAt: Date;
+}
+
+export interface PostEndorsement {
+  postId: number;
+  userId: number;
+  createdAt: Date;
 }
 
 export type InsertPost = Partial<Pick<Post, "id" | "excerpt" | "category" | "coverImage" | "createdAt" | "updatedAt">> &
@@ -41,3 +55,12 @@ export interface Comment {
 
 export type InsertComment = Partial<Pick<Comment, "id" | "createdAt">> &
   Pick<Comment, "postId" | "authorId" | "content">;
+
+export interface GuestbookEntry {
+  id: number;
+  name: string;
+  message: string;
+  authorId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

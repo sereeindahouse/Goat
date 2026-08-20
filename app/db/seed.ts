@@ -168,6 +168,8 @@ async function seed() {
         excerpt: p.excerpt,
         coverImage: p.coverImage,
         category: p.category,
+        endorsementCount: 0,
+        viewCount: 0,
         createdAt: now,
         updatedAt: now,
       });

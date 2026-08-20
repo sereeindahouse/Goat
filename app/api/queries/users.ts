@@ -47,7 +47,7 @@ export async function createLocalUser(data: { email: string; name: string; passw
     email: data.email.toLowerCase(),
     avatar: null,
     passwordHash: data.passwordHash,
-    role: "user",
+    role: env.ownerEmail === data.email.toLowerCase() ? "admin" : "user",
     createdAt: now,
     updatedAt: now,
     lastSignInAt: now,

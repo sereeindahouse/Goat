@@ -1,4 +1,4 @@
-import type { InsertPost, Post, User } from "@db/schema";
+import type { InsertPost, Post, PostEndorsement, PostView, User } from "@db/schema";
 import { getDb, nextId } from "./connection";
 
 type PostWithAuthor = Post & { author: User };
@@ -21,6 +21,8 @@ async function withAuthorsAndCounts(rows: Post[]): Promise<FeedPost[]> {
   const countMap = new Map(commentCounts.map((count) => [count._id, count.value]));
   return rows.map((post) => ({
     ...post,
+    endorsementCount: post.endorsementCount ?? 0,
+    viewCount: post.viewCount ?? 0,
     author: authorMap.get(post.authorId)!,
     commentCount: countMap.get(post.id) ?? 0,
   }));
@@ -61,7 +63,12 @@ export async function findPostById(id: number): Promise<PostWithAuthor | null> {
   const post = await db.collection<Post>("posts").findOne({ id }, { projection: { _id: 0 } });
   if (!post) return null;
   const author = await db.collection<User>("users").findOne({ id: post.authorId }, { projection: { _id: 0 } });
-  return { ...post, author: author! };
+  return {
+    ...post,
+    endorsementCount: post.endorsementCount ?? 0,
+    viewCount: post.viewCount ?? 0,
+    author: author!,
+  };
 }
 
 export async function createPost(data: InsertPost) {
@@ -75,6 +82,8 @@ export async function createPost(data: InsertPost) {
     content: data.content,
     category: data.category ?? "Амьдрал",
     coverImage: data.coverImage ?? null,
+    endorsementCount: 0,
+    viewCount: 0,
     createdAt: data.createdAt ?? now,
     updatedAt: now,
   };
@@ -86,6 +95,41 @@ export async function updatePost(id: number, data: Partial<Pick<InsertPost, "tit
   const db = await getDb();
   await db.collection<Post>("posts").updateOne({ id }, { $set: { ...data, updatedAt: new Date() } });
   return findPostById(id);
+}
+
+export async function endorsePost(id: number, userId: number) {
+  const db = await getDb();
+  try {
+    await db.collection<PostEndorsement>("postEndorsements").insertOne({
+      postId: id,
+      userId,
+      createdAt: new Date(),
+    });
+    await db.collection<Post>("posts").updateOne({ id }, { $inc: { endorsementCount: 1 } });
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+  }
+  return findPostById(id);
+}
+
+export async function recordPostView(id: number, userId: number) {
+  const db = await getDb();
+  try {
+    await db.collection<PostView>("postViews").insertOne({
+      postId: id,
+      userId,
+      createdAt: new Date(),
+    });
+    await db.collection<Post>("posts").updateOne({ id }, { $inc: { viewCount: 1 } });
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+  }
+  return findPostById(id);
+}
+
+export async function hasEndorsed(id: number, userId: number) {
+  const db = await getDb();
+  return !!(await db.collection<PostEndorsement>("postEndorsements").findOne({ postId: id, userId }, { projection: { _id: 1 } }));
 }
 
 export async function deletePost(id: number) {

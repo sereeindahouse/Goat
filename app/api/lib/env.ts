@@ -14,4 +14,7 @@ export const env = {
   databaseUrl: required("MONGODB_URI"),
   databaseName: process.env.MONGODB_DATABASE ?? "blogsor",
   ownerUnionId: process.env.OWNER_UNION_ID ?? "",
+  ownerEmail: process.env.OWNER_EMAIL?.trim().toLowerCase() ?? "",
+  ollamaUrl: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
+  ollamaModel: process.env.OLLAMA_MODEL ?? "qwen2.5:1.5b",
 };

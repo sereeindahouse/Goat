@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/SiteHeader";
 import { formatDate, readingTime, timeAgo } from "@/lib/blog";
 import type { Comment, User } from "@contracts/types";
-import { Pencil, Trash2, MessageSquare, Send } from "lucide-react";
+import { Pencil, Trash2, MessageSquare, Send, ThumbsUp, Eye } from "lucide-react";
 
 type CommentWithAuthor = Comment & { author: User };
 
@@ -63,9 +63,14 @@ export default function PostDetail() {
     { category: postQuery.data?.category ?? "", excludeId: postId },
     { enabled: validId && !!postQuery.data?.category, retry: false },
   );
+  const hasEndorsedQuery = trpc.post.hasEndorsed.useQuery(
+    { id: postId },
+    { enabled: validId && !!user, retry: false },
+  );
 
   const [commentText, setCommentText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const viewedKey = useRef<string | null>(null);
 
   const createComment = trpc.comment.create.useMutation({
     onSuccess: () => {
@@ -89,14 +94,37 @@ export default function PostDetail() {
     },
   });
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [id]);
+  const endorsePost = trpc.post.endorse.useMutation({
+    onSuccess: (updated) => {
+      if (updated) utils.post.byId.setData({ id: postId }, updated);
+      utils.post.list.invalidate();
+      utils.post.hasEndorsed.invalidate({ id: postId });
+    },
+  });
+
+  const recordViewMutation = trpc.post.view.useMutation({
+    onSuccess: (updated) => {
+      if (updated) utils.post.byId.setData({ id: postId }, updated);
+      utils.post.list.invalidate();
+    },
+  });
 
   const post = postQuery.data;
   const comments = useMemo(() => commentsQuery.data ?? [], [commentsQuery.data]);
 
   const canModifyPost = !!user && !!post && (post.authorId === user.id || user.role === "admin");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  useEffect(() => {
+    if (!post || !user || recordViewMutation.isPending) return;
+    const key = `${post.id}:${user.id}`;
+    if (viewedKey.current === key) return;
+    viewedKey.current = key;
+    recordViewMutation.mutate({ id: post.id });
+  }, [post, user, recordViewMutation]);
 
   if (!validId || (!postQuery.isLoading && !post)) {
     return (
@@ -279,6 +307,13 @@ export default function PostDetail() {
         </dl>
 
         <ArticleBody content={post.content} />
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 36, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <button type="button" onClick={() => endorsePost.mutate({ id: post.id })} disabled={!user || endorsePost.isPending || hasEndorsedQuery.data === true} className="font-geist-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: hasEndorsedQuery.data ? "rgba(255,255,255,0.12)" : "transparent", color: "#e8e6e0", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 15px", fontSize: "0.72rem", letterSpacing: "0.1em", opacity: !user || hasEndorsedQuery.data ? 0.65 : 1 }}>
+            <ThumbsUp size={14} /> {!user ? "НЭВТЭРЭХ ШААРДЛАГАТАЙ" : hasEndorsedQuery.data ? "ДЭМЖСЭН" : "УР ЧАДВАРЫГ ДЭМЖИХ"} · {post.endorsementCount ?? 0}
+          </button>
+          <span className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "rgba(255,255,255,0.45)", fontSize: "0.68rem", padding: "0 6px" }}><Eye size={14} /> {post.viewCount ?? 0} ҮЗЭЛТ</span>
+        </div>
 
         {/* Owner controls */}
         {canModifyPost && (

@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { PenLine, LogOut } from "lucide-react";
+import { BookOpen, PenLine, LogOut } from "lucide-react";
 
 export function Avatar({
   name,
@@ -88,6 +88,22 @@ export default function SiteHeader() {
       </Link>
 
       <span style={{ width: 1, height: 18, background: "rgba(255,255,255,0.2)" }} />
+
+      <Link
+        to="/guestbook"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          color: "rgba(255,255,255,0.85)",
+          textDecoration: "none",
+          fontSize: "0.72rem",
+          letterSpacing: "0.14em",
+          fontFamily: '"Geist Mono", monospace',
+        }}
+      >
+        <BookOpen size={13} /> ЗОЧНЫ ДЭВТЭР
+      </Link>
 
       <Link
         to="/write"

@@ -10,6 +10,9 @@ import {
   createPost,
   updatePost,
   deletePost,
+  endorsePost,
+  recordPostView,
+  hasEndorsed,
 } from "./queries/posts";
 
 const postInput = z.object({
@@ -53,6 +56,30 @@ export const postRouter = createRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
       return post;
+    }),
+
+  view: authedQuery
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const post = await findPostById(input.id);
+      if (!post) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
+      }
+      return recordPostView(input.id, ctx.user.id);
+    }),
+
+  hasEndorsed: authedQuery
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(({ ctx, input }) => hasEndorsed(input.id, ctx.user.id)),
+
+  endorse: authedQuery
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const post = await findPostById(input.id);
+      if (!post) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
+      }
+      return endorsePost(input.id, ctx.user.id);
     }),
 
   mine: authedQuery.query(({ ctx }) => findPostsByAuthor(ctx.user.id)),

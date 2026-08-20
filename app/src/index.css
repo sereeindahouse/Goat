@@ -150,3 +150,14 @@
     border: 1px solid var(--border-color);
   }
 }
+
+@media (max-width: 640px) {
+  .guestbook-form,
+  .guestbook-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .guestbook-entry button {
+    justify-self: start;
+  }
+}
