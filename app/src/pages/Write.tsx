@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { COVER_PRESETS, POST_CATEGORIES } from "@contracts/covers";
-import { PenLine } from "lucide-react";
+import { PenLine, Sparkles } from "lucide-react";
 import { compressImage } from "@/lib/image";
 
 const labelStyle: React.CSSProperties = {
@@ -32,6 +32,9 @@ export default function Write() {
   const { id } = useParams();
   const editId = id ? Number(id) : null;
   const isEdit = editId !== null && Number.isInteger(editId) && editId > 0;
+  const [searchParams] = useSearchParams();
+  const groupIdParam = Number(searchParams.get("groupId"));
+  const groupId = Number.isInteger(groupIdParam) && groupIdParam > 0 ? groupIdParam : null;
 
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth({
@@ -48,6 +51,7 @@ export default function Write() {
   const [coverImage, setCoverImage] = useState<string | null>(COVER_PRESETS[0]);
   const [prefilled, setPrefilled] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [assistNotice, setAssistNotice] = useState("");
 
   const handleImageFile = async (file: File | undefined) => {
     if (!file) return;
@@ -89,6 +93,21 @@ export default function Write() {
     },
   });
 
+  const writingAssist = trpc.ai.writingAssist.useMutation({
+    onSuccess: (result, variables) => {
+      if (variables.action === "title") setTitle(result.split("\n")[0].replace(/^[-*\d.\s]+/, "").trim());
+      if (variables.action === "excerpt") setExcerpt(result);
+      if (variables.action === "proofread") setContent(result);
+      setAssistNotice("AI-ийн санал form-д орлоо. Нийтлэхээсээ өмнө шалгана уу.");
+    },
+    onError: () => setAssistNotice("AI боловсруулалт амжилтгүй боллоо. Ollama ажиллаж байгаа эсэхийг шалгана уу."),
+  });
+
+  const runWritingAssist = (action: "title" | "excerpt" | "proofread") => {
+    setAssistNotice("AI агуулгыг боловсруулж байна…");
+    writingAssist.mutate({ action, title, content });
+  };
+
   const saving = createPost.isPending || updatePost.isPending;
   const error = createPost.error ?? updatePost.error;
 
@@ -100,6 +119,7 @@ export default function Write() {
       content: content.trim(),
       category,
       coverImage,
+      groupId: isEdit ? existing.data?.groupId ?? null : groupId,
     };
     if (isEdit) {
       updatePost.mutate({ id: editId!, ...payload });
@@ -187,7 +207,10 @@ export default function Write() {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>Гарчиг *</label>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <label style={{ ...labelStyle, marginBottom: 8 }}>Гарчиг *</label>
+              <button type="button" onClick={() => runWritingAssist("title")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending && writingAssist.variables?.action === "title" ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ГАРЧИГ"}</button>
+            </div>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -199,7 +222,10 @@ export default function Write() {
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>Товч агуулга</label>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <label style={{ ...labelStyle, marginBottom: 8 }}>Товч агуулга</label>
+              <button type="button" onClick={() => runWritingAssist("excerpt")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending && writingAssist.variables?.action === "excerpt" ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ТОВЧЛОЛ"}</button>
+            </div>
             <input
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
@@ -284,7 +310,10 @@ export default function Write() {
           </div>
 
           <div style={{ marginBottom: 28 }}>
-            <label style={labelStyle}>Агуулга * (хоосон мөрөөр догол мөр тусгаарлана, "## " гарчиг, "- " жагсаалт)</label>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <label style={{ ...labelStyle, marginBottom: 8 }}>Агуулга * (хоосон мөрөөр догол мөр тусгаарлана, "## " гарчиг, "- " жагсаалт)</label>
+              <button type="button" onClick={() => runWritingAssist("proofread")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ЗАСАХ"}</button>
+            </div>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -294,6 +323,9 @@ export default function Write() {
               required
             />
           </div>
+
+          {assistNotice && <div className="font-mono-data" style={{ color: writingAssist.error ? "#ff9a9a" : "rgba(255,255,255,0.62)", fontSize: "0.7rem", marginBottom: 16 }}>{assistNotice}</div>}
+          {writingAssist.error && <div className="font-mono-data" style={{ color: "#ff9a9a", fontSize: "0.7rem", marginBottom: 16 }}>{writingAssist.error.message}</div>}
 
           {error && (
             <div className="font-mono-data" style={{ color: "#ff9a9a", fontSize: "0.7rem", marginBottom: 16, letterSpacing: "0.06em" }}>

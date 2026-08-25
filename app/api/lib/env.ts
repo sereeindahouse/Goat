@@ -15,6 +15,8 @@ export const env = {
   databaseName: process.env.MONGODB_DATABASE ?? "blogsor",
   ownerUnionId: process.env.OWNER_UNION_ID ?? "",
   ownerEmail: process.env.OWNER_EMAIL?.trim().toLowerCase() ?? "",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
   ollamaUrl: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
   ollamaModel: process.env.OLLAMA_MODEL ?? "qwen2.5:1.5b",
 };

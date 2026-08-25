@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/SiteHeader";
 import { formatDate, readingTime, timeAgo } from "@/lib/blog";
 import type { Comment, User } from "@contracts/types";
-import { Pencil, Trash2, MessageSquare, Send, ThumbsUp, Eye } from "lucide-react";
+import { Pencil, Trash2, MessageSquare, Send, ThumbsUp, Eye, MessageCircle, Bookmark, Sparkles, Check, Copy } from "lucide-react";
 
 type CommentWithAuthor = Comment & { author: User };
 
@@ -67,9 +67,15 @@ export default function PostDetail() {
     { id: postId },
     { enabled: validId && !!user, retry: false },
   );
+  const isBookmarkedQuery = trpc.bookmark.isBookmarked.useQuery(
+    { postId },
+    { enabled: validId && !!user, retry: false },
+  );
 
   const [commentText, setCommentText] = useState("");
+  const [summary, setSummary] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [copied, setCopied] = useState(false);
   const viewedKey = useRef<string | null>(null);
 
   const createComment = trpc.comment.create.useMutation({
@@ -102,6 +108,17 @@ export default function PostDetail() {
     },
   });
 
+  const toggleBookmark = trpc.bookmark.toggle.useMutation({
+    onSuccess: (data) => {
+      utils.bookmark.isBookmarked.setData({ postId }, data.bookmarked);
+      utils.bookmark.list.invalidate();
+    },
+  });
+
+  const summarizePost = trpc.ai.postSummary.useMutation({
+    onSuccess: (result) => setSummary(result),
+  });
+
   const recordViewMutation = trpc.post.view.useMutation({
     onSuccess: (updated) => {
       if (updated) utils.post.byId.setData({ id: postId }, updated);
@@ -124,7 +141,9 @@ export default function PostDetail() {
     if (viewedKey.current === key) return;
     viewedKey.current = key;
     recordViewMutation.mutate({ id: post.id });
-  }, [post, user, recordViewMutation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post?.id, user?.id]);
+
 
   if (!validId || (!postQuery.isLoading && !post)) {
     return (
@@ -295,6 +314,7 @@ export default function PostDetail() {
           <dd style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <Avatar name={post.author?.name} src={post.author?.avatar} size={22} />
             {post.author?.name ?? "Хэрэглэгч"}
+            {user && post.authorId !== user.id && <Link to={`/messages/user/${post.authorId}`} className="post-chat-link"><MessageCircle size={13} /> CHAT</Link>}
           </dd>
           <dt style={{ opacity: 0.5, margin: 0 }}>Огноо</dt>
           <dd style={{ margin: 0 }}>{formatDate(post.createdAt)}</dd>
@@ -308,11 +328,90 @@ export default function PostDetail() {
 
         <ArticleBody content={post.content} />
 
+        <section style={{ marginTop: 36, padding: 18, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.04)" }}>
+          <button type="button" onClick={() => summarizePost.mutate({ title: post.title, content: post.content })} disabled={summarizePost.isPending} className="font-geist-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: "#e8e6e0", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 15px", fontSize: "0.72rem", letterSpacing: "0.1em" }}>
+            <Sparkles size={14} /> {summarizePost.isPending ? "УНШИЖ БАЙНА…" : "3 ГОЛ САНААГ УНШИХ"}
+          </button>
+          {summary && <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, color: "rgba(232,230,224,0.8)", margin: "16px 0 0" }}>{summary}</p>}
+          {summarizePost.error && <p style={{ color: "#ff9a9a", fontSize: "0.75rem", margin: "12px 0 0" }}>{summarizePost.error.message}</p>}
+        </section>
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 36, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
           <button type="button" onClick={() => endorsePost.mutate({ id: post.id })} disabled={!user || endorsePost.isPending || hasEndorsedQuery.data === true} className="font-geist-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: hasEndorsedQuery.data ? "rgba(255,255,255,0.12)" : "transparent", color: "#e8e6e0", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 15px", fontSize: "0.72rem", letterSpacing: "0.1em", opacity: !user || hasEndorsedQuery.data ? 0.65 : 1 }}>
             <ThumbsUp size={14} /> {!user ? "НЭВТЭРЭХ ШААРДЛАГАТАЙ" : hasEndorsedQuery.data ? "ДЭМЖСЭН" : "УР ЧАДВАРЫГ ДЭМЖИХ"} · {post.endorsementCount ?? 0}
           </button>
+          {user && (
+            <button type="button" onClick={() => toggleBookmark.mutate({ postId: post.id })} disabled={toggleBookmark.isPending} className="font-geist-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: isBookmarkedQuery.data ? "rgba(255,255,255,0.12)" : "transparent", color: "#e8e6e0", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 15px", fontSize: "0.72rem", letterSpacing: "0.1em", opacity: toggleBookmark.isPending ? 0.65 : 1 }}>
+              <Bookmark size={14} fill={isBookmarkedQuery.data ? "currentColor" : "none"} /> {isBookmarkedQuery.data ? "ХАДГАЛСАН" : "ХАДГАЛАХ"}
+            </button>
+          )}
           <span className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "rgba(255,255,255,0.45)", fontSize: "0.68rem", padding: "0 6px" }}><Eye size={14} /> {post.viewCount ?? 0} ҮЗЭЛТ</span>
+        </div>
+
+        {/* Social Share */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 16 }}>
+          <span className="font-mono-data" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em" }}>ХУВААЛЦАХ:</span>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="font-geist-mono"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: "transparent",
+              color: "#e8e6e0",
+              border: "1px solid rgba(255,255,255,0.2)",
+              padding: "6px 12px",
+              fontSize: "0.68rem",
+              cursor: "pointer",
+            }}
+          >
+            {copied ? <Check size={12} color="#86efac" /> : <Copy size={12} />}
+            {copied ? "ХУУЛСАН!" : "ЛИНК ХУУЛАХ"}
+          </button>
+          <a
+            href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(post.title)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-geist-mono"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: "transparent",
+              color: "#e8e6e0",
+              border: "1px solid rgba(255,255,255,0.2)",
+              padding: "6px 12px",
+              fontSize: "0.68rem",
+              textDecoration: "none",
+            }}
+          >
+            TELEGRAM
+          </a>
+          <a
+            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-geist-mono"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: "transparent",
+              color: "#e8e6e0",
+              border: "1px solid rgba(255,255,255,0.2)",
+              padding: "6px 12px",
+              fontSize: "0.68rem",
+              textDecoration: "none",
+            }}
+          >
+            FACEBOOK
+          </a>
         </div>
 
         {/* Owner controls */}
@@ -343,6 +442,7 @@ export default function PostDetail() {
                 }
                 deletePost.mutate({ id: post.id });
               }}
+              onBlur={() => setConfirmDelete(false)}
               className="font-geist-mono"
               style={{
                 display: "inline-flex",
@@ -360,6 +460,7 @@ export default function PostDetail() {
             </button>
           </div>
         )}
+
 
         {/* Comments */}
         <section style={{ marginTop: "72px", paddingTop: "32px", borderTop: "1px solid rgba(255,255,255,0.12)" }}>

@@ -6,7 +6,7 @@ import { Avatar } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PenLine, Save } from "lucide-react";
+import { PenLine, Save, MessageCircle } from "lucide-react";
 import { compressImage } from "@/lib/image";
 
 export default function Profile() {
@@ -23,6 +23,10 @@ export default function Profile() {
     { authorId: profileId },
     { enabled: validId, retry: false },
   );
+  const savedPostsQuery = trpc.bookmark.list.useQuery(undefined, {
+    enabled: validId && !!user && user.id === profileId,
+    retry: false,
+  });
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
   const [editing, setEditing] = useState(false);
@@ -87,6 +91,7 @@ export default function Profile() {
                 <PenLine size={15} /> {editing ? "БОЛИХ" : "ПРОФАЙЛ ЗАСАХ"}
               </Button>
             )}
+            {!isOwner && user && <Link to={`/messages/user/${profile.id}`} className="profile-chat-link"><MessageCircle size={15} /> CHAT</Link>}
           </div>
 
           {editing && (
@@ -135,6 +140,25 @@ export default function Profile() {
             <p className="font-mono-data text-xs text-white/40">Одоогоор нийтлэл алга.</p>
           )}
         </section>
+
+        {isOwner && (
+          <section className="border-t border-white/15 pt-10 mt-10">
+            <h2 className="font-geist-mono text-xl mb-6">Хадгалсан нийтлэлүүд</h2>
+            {savedPostsQuery.data?.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {savedPostsQuery.data.map((post) => (
+                  <Link key={post.id} to={`/post/${post.id}`} className="border border-white/15 p-5 text-white no-underline hover:border-white/50">
+                    <p className="font-mono-data text-[0.65rem] text-white/40 mb-3">{post.category}</p>
+                    <h3 className="font-geist-mono text-lg">{post.title}</h3>
+                    <p className="mt-3 text-sm text-white/55 line-clamp-3">{post.excerpt || post.content}</p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="font-mono-data text-xs text-white/40">Хадгалсан нийтлэл алга.</p>
+            )}
+          </section>
+        )}
       </div>
     </main>
   );

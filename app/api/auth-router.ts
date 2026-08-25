@@ -10,6 +10,7 @@ import {
   findUserByEmail,
   findUserById,
   updateUserProfile,
+  searchUsers,
 } from "./queries/users";
 import { serializeSessionCookie, signSessionToken } from "./auth/session";
 
@@ -28,9 +29,12 @@ function passwordMatches(password: string, stored: string) {
 }
 
 export const authRouter = createRouter({
-    byId: publicQuery
-      .input(z.object({ id: z.number().int().positive() }))
-      .query(({ input }) => findUserById(input.id)),
+  search: publicQuery
+    .input(z.object({ query: z.string().trim().min(1).max(80), limit: z.number().min(1).max(50).optional() }))
+    .query(({ input }) => searchUsers(input.query, input.limit ?? 20)),
+  byId: publicQuery
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(({ input }) => findUserById(input.id)),
   login: publicQuery
     .input(z.object({
       email: z.string().trim().email(),

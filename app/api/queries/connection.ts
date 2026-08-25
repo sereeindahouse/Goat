@@ -17,6 +17,7 @@ export async function getDb(): Promise<Db> {
     client = new MongoClient(env.databaseUrl);
     await client.connect();
     database = client.db(env.databaseName || undefined);
+    await database.collection("conversations").dropIndex("participantIds_1").catch(() => undefined);
     await Promise.all([
       database.collection("users").createIndex({ unionId: 1 }, { unique: true }),
       database.collection("posts").createIndex({ createdAt: -1 }),
@@ -24,6 +25,15 @@ export async function getDb(): Promise<Db> {
       database.collection("guestbook").createIndex({ createdAt: -1 }),
       database.collection("postViews").createIndex({ postId: 1, userId: 1 }, { unique: true }),
       database.collection("postEndorsements").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+      database.collection("groups").createIndex({ createdAt: -1 }),
+      database.collection("groupMembers").createIndex({ groupId: 1, userId: 1 }, { unique: true }),
+      database.collection("groupInvites").createIndex({ groupId: 1, inviteeId: 1, status: 1 }),
+      database.collection("groupJoinRequests").createIndex({ groupId: 1, userId: 1, status: 1 }),
+      database.collection("notifications").createIndex({ userId: 1, createdAt: -1 }),
+      database.collection("conversations").createIndex({ participantKey: 1 }, { unique: true }),
+      database.collection("messages").createIndex({ conversationId: 1, createdAt: 1 }),
+      database.collection("bookmarks").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+      database.collection("bookmarks").createIndex({ userId: 1, createdAt: -1 }),
     ]);
     await database.collection("posts").updateMany(
       { category: { $nin: ["Технологи", "Амьдрал", "Урлаг", "Аялал", "Бодлого"] } },

@@ -9,6 +9,10 @@ import CustomCursor from './sections/CustomCursor'
 import SiteHeader from './components/SiteHeader'
 import Guestbook from './pages/Guestbook'
 import ChatWidget from './components/ChatWidget'
+import MainPage from './pages/MainPage'
+import Groups from './pages/Groups'
+import SearchPage from './pages/SearchPage'
+import Messages from './pages/Messages'
 
 export default function App() {
   return (
@@ -18,6 +22,13 @@ export default function App() {
       <ChatWidget />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/main" element={<MainPage />} />
+        <Route path="/groups" element={<Groups />} />
+        <Route path="/groups/:id" element={<Groups />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/user/:userId" element={<Messages />} />
+        <Route path="/messages/:id" element={<Messages />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/write" element={<Write />} />
         <Route path="/edit/:id" element={<Write />} />

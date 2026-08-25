@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { POST_CATEGORIES } from "@contracts/covers";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
+import { canViewGroupPosts, getMemberRole } from "./queries/groups";
 import {
   listPosts,
   findPostById,
@@ -13,6 +14,7 @@ import {
   endorsePost,
   recordPostView,
   hasEndorsed,
+  listGroupPosts,
 } from "./queries/posts";
 
 const postInput = z.object({
@@ -21,6 +23,7 @@ const postInput = z.object({
   content: z.string().trim().min(10, "Агуулга хамгийн багадаа 10 тэмдэгт"),
   category: z.enum(POST_CATEGORIES).default("Амьдрал"),
   coverImage: z.string().trim().max(500).nullish(),
+  groupId: z.number().int().positive().nullable().optional(),
 });
 
 function assertCanModify(
@@ -38,21 +41,33 @@ function assertCanModify(
 export const postRouter = createRouter({
   list: publicQuery
     .input(z.object({ limit: z.number().min(1).max(100).optional() }).optional())
-    .query(({ input }) => listPosts(input?.limit ?? 60)),
+    .query(({ ctx, input }) => listPosts(input?.limit ?? 60, ctx.user?.id)),
+
+  groupList: publicQuery
+    .input(z.object({ groupId: z.number().int().positive(), limit: z.number().min(1).max(100).optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!(await canViewGroupPosts(input.groupId, ctx.user?.id))) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Group олдсонгүй эсвэл private group байна." });
+      }
+      return listGroupPosts(input.groupId, input.limit ?? 60);
+    }),
 
   byAuthor: publicQuery
     .input(z.object({ authorId: z.number().int().positive() }))
-    .query(({ input }) => findPostsByAuthor(input.authorId)),
+    .query(({ ctx, input }) => findPostsByAuthor(input.authorId, ctx.user?.id)),
 
   related: publicQuery
     .input(z.object({ category: z.string().min(1), excludeId: z.number().int().positive() }))
-    .query(({ input }) => findRelatedPosts(input.category, input.excludeId)),
+    .query(({ ctx, input }) => findRelatedPosts(input.category, input.excludeId, 3, ctx.user?.id)),
 
   byId: publicQuery
     .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const post = await findPostById(input.id);
       if (!post) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
+      }
+      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user?.id))) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
       return post;
@@ -84,13 +99,12 @@ export const postRouter = createRouter({
 
   mine: authedQuery.query(({ ctx }) => findPostsByAuthor(ctx.user.id)),
 
-  create: authedQuery.input(postInput).mutation(({ ctx, input }) =>
-    createPost({
-      ...input,
-      coverImage: input.coverImage ?? null,
-      authorId: ctx.user.id,
-    }),
-  ),
+  create: authedQuery.input(postInput).mutation(async ({ ctx, input }) => {
+    if (input.groupId !== undefined && input.groupId !== null && !(await getMemberRole(input.groupId, ctx.user.id))) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Энэ group-ийн гишүүн биш байна." });
+    }
+    return createPost({ ...input, coverImage: input.coverImage ?? null, groupId: input.groupId ?? null, authorId: ctx.user.id });
+  }),
 
   update: authedQuery
     .input(z.object({ id: z.number().int().positive() }).merge(postInput))

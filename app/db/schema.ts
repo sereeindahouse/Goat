@@ -28,6 +28,7 @@ export interface Post {
   viewCount: number;
   createdAt: Date;
   updatedAt: Date;
+  groupId?: number | null;
 }
 
 export interface PostView {
@@ -42,7 +43,13 @@ export interface PostEndorsement {
   createdAt: Date;
 }
 
-export type InsertPost = Partial<Pick<Post, "id" | "excerpt" | "category" | "coverImage" | "createdAt" | "updatedAt">> &
+export interface Bookmark {
+  postId: number;
+  userId: number;
+  createdAt: Date;
+}
+
+export type InsertPost = Partial<Pick<Post, "id" | "excerpt" | "category" | "coverImage" | "createdAt" | "updatedAt" | "groupId">> &
   Pick<Post, "authorId" | "title" | "content">;
 
 export interface Comment {
@@ -63,4 +70,76 @@ export interface GuestbookEntry {
   authorId: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type GroupPrivacy = "public" | "private";
+export type GroupMemberRole = "owner" | "admin" | "member";
+
+export interface Group {
+  id: number;
+  name: string;
+  description: string;
+  privacy: GroupPrivacy;
+  ownerId: number;
+  createdAt: Date;
+  updatedAt: Date;
+  coverImage?: string | null;
+}
+
+export interface GroupMember {
+  groupId: number;
+  userId: number;
+  role: GroupMemberRole;
+  createdAt: Date;
+}
+
+export interface GroupInvite {
+  id: number;
+  groupId: number;
+  inviterId: number;
+  inviteeId: number;
+  status: "pending" | "accepted" | "declined";
+  createdAt: Date;
+}
+
+export type GroupJoinRequestStatus = "pending" | "approved" | "rejected";
+
+export interface GroupJoinRequest {
+  id: number;
+  groupId: number;
+  userId: number;
+  status: GroupJoinRequestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type NotificationType = "new_post" | "group_join_request" | "group_member_joined" | "group_join_approved" | "group_invite" | "new_message";
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+}
+
+export interface Conversation {
+  id: number;
+  participantIds: [number, number];
+  participantKey: string;
+  updatedAt: Date;
+  createdAt: Date;
+}
+
+export interface DirectMessage {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  recipientId: number;
+  content: string;
+  createdAt: Date;
+  readAt: Date | null;
 }

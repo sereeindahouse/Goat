@@ -11,7 +11,7 @@ import { POST_CATEGORIES } from '@contracts/covers'
 
 gsap.registerPlugin(ScrollTrigger)
 
-export type FeedPost = Post & { author: User; commentCount: number; endorsementCount: number; viewCount: number }
+export type FeedPost = Post & { author: User; commentCount: number; endorsementCount: number; viewCount: number; group?: { id: number; name: string; privacy: 'public' | 'private' } | null }
 
 function distributeCards(posts: FeedPost[]) {
   const cols: FeedPost[][] = [[], [], [], []]
@@ -430,6 +430,7 @@ function PostCard({ post }: { post: FeedPost }) {
         <Link to={`/?category=${encodeURIComponent(post.category)}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>
           {post.category}
         </Link>
+        {post.group && <span> · {post.group.name}</span>}
       </div>
       <Link to={`/post/${post.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
         <div style={{ fontSize: '1rem', fontWeight: 900, letterSpacing: '0.03em', marginBottom: '12px', lineHeight: 1.2 }}>

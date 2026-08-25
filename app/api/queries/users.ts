@@ -23,6 +23,15 @@ export async function listSafeUsers() {
   ).sort({ id: 1 }).toArray();
 }
 
+export async function searchUsers(query: string, limit = 20) {
+  const db = await getDb();
+  const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  return db.collection<User>("users").find(
+    { $or: [{ name: pattern }, { email: pattern }] },
+    { projection: { _id: 0, passwordHash: 0 } },
+  ).limit(limit).toArray();
+}
+
 export async function deleteUserById(requesterId: number, targetId: number) {
   const db = await getDb();
   const target = await db.collection<User>("users").findOne({ id: targetId });
