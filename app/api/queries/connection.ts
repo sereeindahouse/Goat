@@ -31,6 +31,7 @@ async function initializeDatabase(): Promise<Db> {
   const nextClient = new MongoClient(env.databaseUrl, {
     connectTimeoutMS: 8000,
     serverSelectionTimeoutMS: 8000,
+    family: 4,
   });
   await nextClient.connect();
   const nextDatabase = nextClient.db(env.databaseName || undefined);
