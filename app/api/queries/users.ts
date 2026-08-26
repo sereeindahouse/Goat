@@ -2,6 +2,8 @@ import type { InsertUser, User } from "@db/schema";
 import { getDb, nextId } from "./connection";
 import { env } from "../lib/env";
 
+type UserCounter = { _id: string; value: number };
+
 export async function findUserByUnionId(unionId: string) {
   const db = await getDb();
   return db.collection<User>("users").findOne({ unionId }, { projection: { _id: 0 } });
@@ -44,7 +46,48 @@ export async function deleteUserById(requesterId: number, targetId: number) {
   }
 
   await db.collection<User>("users").deleteOne({ id: targetId });
+  await compactUserIds();
   return "deleted" as const;
+}
+
+async function compactUserIds() {
+  const db = await getDb();
+  const users = await db.collection<User>("users").find({}, { projection: { _id: 0, id: 1 } }).sort({ id: 1 }).toArray();
+  const references = [
+    ["posts", "authorId"],
+    ["postViews", "userId"],
+    ["postEndorsements", "userId"],
+    ["bookmarks", "userId"],
+    ["comments", "authorId"],
+    ["guestbook", "authorId"],
+    ["groups", "ownerId"],
+    ["groupMembers", "userId"],
+    ["groupInvites", "inviterId"],
+    ["groupInvites", "inviteeId"],
+    ["groupJoinRequests", "userId"],
+    ["notifications", "userId"],
+    ["messages", "senderId"],
+    ["messages", "recipientId"],
+  ] as const;
+
+  for (const [index, user] of users.entries()) {
+    const nextId = index + 1;
+    if (user.id === nextId) continue;
+    for (const [collectionName, field] of references) {
+      await db.collection(collectionName).updateMany({ [field]: user.id }, { $set: { [field]: nextId } });
+    }
+    await db.collection<User>("users").updateOne({ id: user.id }, { $set: { id: nextId } });
+  }
+
+  const conversations = await db.collection<{ id: number; participantIds: [number, number]; participantKey: string }>("conversations").find({}, { projection: { _id: 0 } }).toArray();
+  for (const conversation of conversations) {
+    const participantIds = conversation.participantIds.map((id) => users.findIndex((user) => user.id === id) + 1) as [number, number];
+    const participantKey = [...participantIds].sort((first, second) => first - second).join(":");
+    await db.collection("conversations").updateOne({ id: conversation.id }, { $set: { participantIds, participantKey } });
+  }
+
+  const maximumId = users.length;
+  await db.collection<UserCounter>("_counters").updateOne({ _id: "users" }, { $set: { value: maximumId } }, { upsert: true });
 }
 
 export async function updateUserProfile(
