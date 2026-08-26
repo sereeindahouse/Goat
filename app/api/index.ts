@@ -1,5 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import app from "../dist/boot.js";
+
+// Vercel includes this generated bundle before compiling the function entrypoint.
+// @ts-expect-error The generated bundle has no declaration file.
+import bundledApp from "../dist/boot.js";
+
+const app = bundledApp as { fetch(request: Request): Promise<Response> };
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
 	const headers = new Headers();
@@ -21,6 +26,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 	const response = await app.fetch(request);
 
 	res.statusCode = response.status;
-	response.headers.forEach((value, name) => res.setHeader(name, value));
+	response.headers.forEach((value: string, name: string) => res.setHeader(name, value));
 	res.end(Buffer.from(await response.arrayBuffer()));
 }
