@@ -28,7 +28,10 @@ export async function getDb(): Promise<Db> {
 }
 
 async function initializeDatabase(): Promise<Db> {
-  const nextClient = new MongoClient(env.databaseUrl);
+  const nextClient = new MongoClient(env.databaseUrl, {
+    connectTimeoutMS: 8000,
+    serverSelectionTimeoutMS: 8000,
+  });
   await nextClient.connect();
   const nextDatabase = nextClient.db(env.databaseName || undefined);
   await nextDatabase.collection("conversations").dropIndex("participantIds_1").catch(() => undefined);
