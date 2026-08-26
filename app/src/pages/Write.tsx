@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { COVER_PRESETS, POST_CATEGORIES } from "@contracts/covers";
-import { PenLine, Sparkles } from "lucide-react";
+import { PenLine, Sparkles, Loader2 } from "lucide-react";
 import { compressImage } from "@/lib/image";
 
 const labelStyle: React.CSSProperties = {
@@ -98,14 +98,19 @@ export default function Write() {
       if (variables.action === "title") setTitle(result.split("\n")[0].replace(/^[-*\d.\s]+/, "").trim());
       if (variables.action === "excerpt") setExcerpt(result);
       if (variables.action === "proofread") setContent(result);
-      setAssistNotice("AI-ийн санал form-д орлоо. Нийтлэхээсээ өмнө шалгана уу.");
+      setAssistNotice("✓ AI-ийн санал бэлэн боллоо! Нийтлэхээсээ өмнө шалгана уу.");
     },
-    onError: () => setAssistNotice("AI боловсруулалт амжилтгүй боллоо. Ollama ажиллаж байгаа эсэхийг шалгана уу."),
+    onError: (err) => setAssistNotice(err.message || "AI боловсруулалт амжилтгүй боллоо."),
   });
 
   const runWritingAssist = (action: "title" | "excerpt" | "proofread") => {
-    setAssistNotice("AI агуулгыг боловсруулж байна…");
-    writingAssist.mutate({ action, title, content });
+    const text = `${title} ${content}`.trim();
+    if (text.length < 3) {
+      setAssistNotice("⚠️ Эхлээд гарчиг эсвэл агуулгаас цөөн үг бичнэ үү.");
+      return;
+    }
+    setAssistNotice("⏳ AI боловсруулж байна… түр хүлээнэ үү.");
+    writingAssist.mutate({ action, title: title.trim(), content: content.trim() });
   };
 
   const saving = createPost.isPending || updatePost.isPending;
@@ -209,7 +214,30 @@ export default function Write() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
               <label style={{ ...labelStyle, marginBottom: 8 }}>Гарчиг *</label>
-              <button type="button" onClick={() => runWritingAssist("title")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending && writingAssist.variables?.action === "title" ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ГАРЧИГ"}</button>
+              <button
+                type="button"
+                onClick={() => runWritingAssist("title")}
+                disabled={writingAssist.isPending}
+                className="font-mono-data"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: writingAssist.isPending && writingAssist.variables?.action === "title" ? "rgba(255,255,255,0.18)" : "transparent",
+                  color: "#e8e6e0",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  padding: "6px 10px",
+                  fontSize: "0.65rem",
+                  cursor: "pointer",
+                }}
+              >
+                {writingAssist.isPending && writingAssist.variables?.action === "title" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                {writingAssist.isPending && writingAssist.variables?.action === "title" ? "БОДОЖ БАЙНА…" : "AI ГАРЧИГ"}
+              </button>
             </div>
             <input
               value={title}
@@ -224,7 +252,30 @@ export default function Write() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
               <label style={{ ...labelStyle, marginBottom: 8 }}>Товч агуулга</label>
-              <button type="button" onClick={() => runWritingAssist("excerpt")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending && writingAssist.variables?.action === "excerpt" ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ТОВЧЛОЛ"}</button>
+              <button
+                type="button"
+                onClick={() => runWritingAssist("excerpt")}
+                disabled={writingAssist.isPending}
+                className="font-mono-data"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: writingAssist.isPending && writingAssist.variables?.action === "excerpt" ? "rgba(255,255,255,0.18)" : "transparent",
+                  color: "#e8e6e0",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  padding: "6px 10px",
+                  fontSize: "0.65rem",
+                  cursor: "pointer",
+                }}
+              >
+                {writingAssist.isPending && writingAssist.variables?.action === "excerpt" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                {writingAssist.isPending && writingAssist.variables?.action === "excerpt" ? "БОДОЖ БАЙНА…" : "AI ТОВЧЛОЛ"}
+              </button>
             </div>
             <input
               value={excerpt}
@@ -234,6 +285,7 @@ export default function Write() {
               style={inputStyle}
             />
           </div>
+
 
           <div style={{ marginBottom: 24 }}>
             <label style={labelStyle}>Ангилал</label>
@@ -312,7 +364,31 @@ export default function Write() {
           <div style={{ marginBottom: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
               <label style={{ ...labelStyle, marginBottom: 8 }}>Агуулга * (хоосон мөрөөр догол мөр тусгаарлана, "## " гарчиг, "- " жагсаалт)</label>
-              <button type="button" onClick={() => runWritingAssist("proofread")} disabled={writingAssist.isPending || content.trim().length < 10} className="font-mono-data" style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, background: "transparent", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", padding: "6px 9px", fontSize: "0.62rem" }}><Sparkles size={12} /> {writingAssist.isPending ? "AI БОЛОВСРУУЛЖ БАЙНА…" : "AI ЗАСАХ"}</button>
+              <button
+                type="button"
+                onClick={() => runWritingAssist("proofread")}
+                disabled={writingAssist.isPending}
+                className="font-mono-data"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flexShrink: 0,
+                  background: writingAssist.isPending && writingAssist.variables?.action === "proofread" ? "rgba(255,255,255,0.18)" : "transparent",
+                  color: "#e8e6e0",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  padding: "6px 10px",
+                  fontSize: "0.65rem",
+                  cursor: "pointer",
+                }}
+              >
+                {writingAssist.isPending && writingAssist.variables?.action === "proofread" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                {writingAssist.isPending && writingAssist.variables?.action === "proofread" ? "БОДОЖ БАЙНА…" : "AI ЗАСАХ"}
+              </button>
             </div>
             <textarea
               value={content}

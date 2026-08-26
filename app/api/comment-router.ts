@@ -13,7 +13,13 @@ import { canViewGroupPosts } from "./queries/groups";
 export const commentRouter = createRouter({
   listByPost: publicQuery
     .input(z.object({ postId: z.number().int().positive() }))
-    .query(({ input }) => listCommentsByPost(input.postId)),
+    .query(async ({ ctx, input }) => {
+      const post = await findPostById(input.postId);
+      if (!post || (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user)))) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
+      }
+      return listCommentsByPost(input.postId);
+    }),
 
   create: authedQuery
     .input(
@@ -31,7 +37,7 @@ export const commentRouter = createRouter({
       if (!post) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
-      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user.id))) {
+      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user))) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Энэ нийтлэлд сэтгэгдэл бичих эрхгүй" });
       }
       return createComment({

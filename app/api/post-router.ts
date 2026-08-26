@@ -41,12 +41,12 @@ function assertCanModify(
 export const postRouter = createRouter({
   list: publicQuery
     .input(z.object({ limit: z.number().min(1).max(100).optional() }).optional())
-    .query(({ ctx, input }) => listPosts(input?.limit ?? 60, ctx.user?.id)),
+    .query(({ ctx, input }) => listPosts(input?.limit ?? 60, ctx.user)),
 
   groupList: publicQuery
     .input(z.object({ groupId: z.number().int().positive(), limit: z.number().min(1).max(100).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!(await canViewGroupPosts(input.groupId, ctx.user?.id))) {
+      if (!(await canViewGroupPosts(input.groupId, ctx.user))) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Group олдсонгүй эсвэл private group байна." });
       }
       return listGroupPosts(input.groupId, input.limit ?? 60);
@@ -54,11 +54,11 @@ export const postRouter = createRouter({
 
   byAuthor: publicQuery
     .input(z.object({ authorId: z.number().int().positive() }))
-    .query(({ ctx, input }) => findPostsByAuthor(input.authorId, ctx.user?.id)),
+    .query(({ ctx, input }) => findPostsByAuthor(input.authorId, ctx.user)),
 
   related: publicQuery
     .input(z.object({ category: z.string().min(1), excludeId: z.number().int().positive() }))
-    .query(({ ctx, input }) => findRelatedPosts(input.category, input.excludeId, 3, ctx.user?.id)),
+    .query(({ ctx, input }) => findRelatedPosts(input.category, input.excludeId, 3, ctx.user)),
 
   byId: publicQuery
     .input(z.object({ id: z.number().int().positive() }))
@@ -67,7 +67,7 @@ export const postRouter = createRouter({
       if (!post) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
-      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user?.id))) {
+      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user))) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
       return post;
@@ -79,6 +79,9 @@ export const postRouter = createRouter({
       const post = await findPostById(input.id);
       if (!post) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
+      }
+      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Энэ нийтлэлийг харах эрхгүй" });
       }
       return recordPostView(input.id, ctx.user.id);
     }),
@@ -94,10 +97,13 @@ export const postRouter = createRouter({
       if (!post) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Нийтлэл олдсонгүй" });
       }
+      if (post.groupId && !(await canViewGroupPosts(post.groupId, ctx.user))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Энэ нийтлэлийг харах эрхгүй" });
+      }
       return endorsePost(input.id, ctx.user.id);
     }),
 
-  mine: authedQuery.query(({ ctx }) => findPostsByAuthor(ctx.user.id)),
+  mine: authedQuery.query(({ ctx }) => findPostsByAuthor(ctx.user.id, ctx.user)),
 
   create: authedQuery.input(postInput).mutation(async ({ ctx, input }) => {
     if (input.groupId !== undefined && input.groupId !== null && !(await getMemberRole(input.groupId, ctx.user.id))) {

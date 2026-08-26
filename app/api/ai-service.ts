@@ -1,21 +1,9 @@
 import { env } from "./lib/env";
 import { getDb } from "./queries/connection";
 import { deleteUserById, findUserByEmail, findUserById, listSafeUsers } from "./queries/users";
-import type { Comment, GuestbookEntry, Post, User } from "@db/schema";
+import type { Comment, GuestbookEntry, Group, GroupMember, Post, User } from "@db/schema";
 
 type OllamaResponse = { message?: { content?: string } };
-type GeminiResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-  }>;
-  error?: {
-    code?: number;
-    message?: string;
-    status?: string;
-  };
-};
 type AiUser = Pick<User, "id" | "role" | "name">;
 export type WritingAssistAction = "title" | "excerpt" | "proofread" | "summary";
 
@@ -71,21 +59,30 @@ function trimContext(value: string, maxLength: number) {
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength).trimEnd()}…`;
 }
 
-async function buildBlogContext() {
+async function buildBlogContext(user: AiUser) {
   const db = await getDb();
-  const [posts, guestbook, comments] = await Promise.all([
-    db.collection<Post>("posts")
-      .find({}, { projection: { _id: 0, id: 1, title: 1, category: 1, excerpt: 1, content: 1 } })
+  const postFilter = user.role === "admin"
+    ? {}
+    : {
+      $or: [
+        { groupId: { $exists: false } },
+        { groupId: null },
+        { groupId: { $in: await visibleGroupIds(user.id) } },
+      ],
+    };
+  const posts = await db.collection<Post>("posts")
+      .find(postFilter, { projection: { _id: 0, id: 1, title: 1, category: 1, excerpt: 1, content: 1 } })
       .sort({ createdAt: -1 })
       .limit(30)
-      .toArray(),
+      .toArray();
+  const [guestbook, comments] = await Promise.all([
     db.collection<GuestbookEntry>("guestbook")
       .find({}, { projection: { _id: 0, name: 1, message: 1 } })
       .sort({ createdAt: -1 })
       .limit(30)
       .toArray(),
     db.collection<Comment>("comments")
-      .find({}, { projection: { _id: 0, postId: 1, content: 1 } })
+      .find({ postId: { $in: posts.map((post) => post.id) } }, { projection: { _id: 0, postId: 1, content: 1 } })
       .sort({ createdAt: -1 })
       .limit(50)
       .toArray(),
@@ -108,49 +105,13 @@ async function buildBlogContext() {
   ].join("\n\n");
 }
 
-async function callGemini(systemPrompt: string, userQuestion: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`;
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: userQuestion }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-        },
-      }),
-    });
-  } catch {
-    throw new Error("Google Gemini API-д холбогдож чадсангүй. Сүлжээний холболтоо шалгана уу.");
-  }
-
-  if (!response.ok) {
-    let errorDetail = "";
-    try {
-      const errJson = (await response.json()) as GeminiResponse;
-      errorDetail = errJson.error?.message ?? "";
-    } catch {
-      // ignore
-    }
-    throw new Error(`Google Gemini API алдаа буцаалаа (${response.status})${errorDetail ? `: ${errorDetail}` : ""}`);
-  }
-
-  const result = (await response.json()) as GeminiResponse;
-  const answer = result.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim();
-  if (!answer) {
-    throw new Error("AI хоосон хариу буцаалаа. Дахин оролдоно уу.");
-  }
-  return answer;
+async function visibleGroupIds(userId: number) {
+  const db = await getDb();
+  const [publicGroups, memberships] = await Promise.all([
+    db.collection<Group>("groups").find({ privacy: "public" }, { projection: { _id: 0, id: 1 } }).toArray(),
+    db.collection<GroupMember>("groupMembers").find({ userId }, { projection: { _id: 0, groupId: 1 } }).toArray(),
+  ]);
+  return [...new Set([...publicGroups.map((group) => group.id), ...memberships.map((membership) => membership.groupId)])];
 }
 
 async function callOllama(systemPrompt: string, userQuestion: string): Promise<string> {
@@ -193,12 +154,8 @@ export async function generateWritingAssist(action: WritingAssistAction, title: 
   const systemPrompt = `Та Монгол хэлний нийтлэл бичих туслагч. ${instructions[action]}`;
   const userPrompt = `Гарчиг: ${title || "(байхгүй)"}\n\nАгуулга:\n${content}`;
 
-  if (env.geminiApiKey) {
-    return callGemini(systemPrompt, userPrompt);
-  }
   return callOllama(systemPrompt, userPrompt);
 }
-
 
 export async function answerBlogQuestion(question: string, user: AiUser): Promise<string> {
   if (isBlockedRequest(question)) {
@@ -208,7 +165,7 @@ export async function answerBlogQuestion(question: string, user: AiUser): Promis
   const userActionResult = await handleAdminUserRequest(question, user);
   if (userActionResult) return userActionResult;
 
-  const context = await buildBlogContext();
+  const context = await buildBlogContext(user);
   const systemPrompt = `Та бол Блогсор блогийн туслах AI. Монгол хэлээр товч, логиктой, баримтад тулгуурлан хариул.
 
 ЗААВАЛ МӨРДӨХ ДҮРЭМ:
@@ -224,9 +181,6 @@ export async function answerBlogQuestion(question: string, user: AiUser): Promis
 
 ${context}`;
 
-  if (env.geminiApiKey) {
-    return callGemini(systemPrompt, question);
-  }
-
   return callOllama(systemPrompt, question);
 }
+

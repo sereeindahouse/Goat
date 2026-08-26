@@ -13,9 +13,9 @@ async function assertManager(groupId: number, userId: number) {
 }
 
 export const groupRouter = createRouter({
-  list: publicQuery.query(({ ctx }) => listGroups(ctx.user?.id)),
+  list: publicQuery.query(({ ctx }) => listGroups(ctx.user)),
   byId: publicQuery.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
-    const group = await getGroup(input.id, ctx.user?.id);
+    const group = await getGroup(input.id, ctx.user);
     if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group олдсонгүй эсвэл private group байна." });
     return group;
   }),
@@ -24,7 +24,7 @@ export const groupRouter = createRouter({
     await assertManager(input.groupId, ctx.user.id);
     if (!(await findUserById(input.userId))) throw new TRPCError({ code: "NOT_FOUND", message: "Хэрэглэгч олдсонгүй." });
     await addMember(input.groupId, input.userId);
-    return getGroup(input.groupId, ctx.user.id);
+    return getGroup(input.groupId, ctx.user);
   }),
   invite: authedQuery.input(z.object({ groupId: z.number().int().positive(), userId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     await assertManager(input.groupId, ctx.user.id);

@@ -3,8 +3,8 @@ import { env } from "../lib/env";
 
 type Counter = { _id: string; value: number };
 
-let client: MongoClient | undefined;
 let database: Db | undefined;
+let initialization: Promise<Db> | undefined;
 
 export async function getDb(): Promise<Db> {
   if (!env.databaseUrl) {
@@ -13,35 +13,47 @@ export async function getDb(): Promise<Db> {
     );
   }
 
-  if (!client) {
-    client = new MongoClient(env.databaseUrl);
-    await client.connect();
-    database = client.db(env.databaseName || undefined);
-    await database.collection("conversations").dropIndex("participantIds_1").catch(() => undefined);
-    await Promise.all([
-      database.collection("users").createIndex({ unionId: 1 }, { unique: true }),
-      database.collection("posts").createIndex({ createdAt: -1 }),
-      database.collection("comments").createIndex({ postId: 1, createdAt: 1 }),
-      database.collection("guestbook").createIndex({ createdAt: -1 }),
-      database.collection("postViews").createIndex({ postId: 1, userId: 1 }, { unique: true }),
-      database.collection("postEndorsements").createIndex({ postId: 1, userId: 1 }, { unique: true }),
-      database.collection("groups").createIndex({ createdAt: -1 }),
-      database.collection("groupMembers").createIndex({ groupId: 1, userId: 1 }, { unique: true }),
-      database.collection("groupInvites").createIndex({ groupId: 1, inviteeId: 1, status: 1 }),
-      database.collection("groupJoinRequests").createIndex({ groupId: 1, userId: 1, status: 1 }),
-      database.collection("notifications").createIndex({ userId: 1, createdAt: -1 }),
-      database.collection("conversations").createIndex({ participantKey: 1 }, { unique: true }),
-      database.collection("messages").createIndex({ conversationId: 1, createdAt: 1 }),
-      database.collection("bookmarks").createIndex({ postId: 1, userId: 1 }, { unique: true }),
-      database.collection("bookmarks").createIndex({ userId: 1, createdAt: -1 }),
-    ]);
-    await database.collection("posts").updateMany(
-      { category: { $nin: ["Технологи", "Амьдрал", "Урлаг", "Аялал", "Бодлого"] } },
-      { $set: { category: "Амьдрал" } },
-    );
+  if (!database) {
+    initialization ??= initializeDatabase();
+    try {
+      database = await initialization;
+    } catch (error) {
+      initialization = undefined;
+      database = undefined;
+      throw error;
+    }
   }
 
-  return database!;
+  return database;
+}
+
+async function initializeDatabase(): Promise<Db> {
+  const nextClient = new MongoClient(env.databaseUrl);
+  await nextClient.connect();
+  const nextDatabase = nextClient.db(env.databaseName || undefined);
+  await nextDatabase.collection("conversations").dropIndex("participantIds_1").catch(() => undefined);
+  await Promise.all([
+    nextDatabase.collection("users").createIndex({ unionId: 1 }, { unique: true }),
+    nextDatabase.collection("posts").createIndex({ createdAt: -1 }),
+    nextDatabase.collection("comments").createIndex({ postId: 1, createdAt: 1 }),
+    nextDatabase.collection("guestbook").createIndex({ createdAt: -1 }),
+    nextDatabase.collection("postViews").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+    nextDatabase.collection("postEndorsements").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+    nextDatabase.collection("groups").createIndex({ createdAt: -1 }),
+    nextDatabase.collection("groupMembers").createIndex({ groupId: 1, userId: 1 }, { unique: true }),
+    nextDatabase.collection("groupInvites").createIndex({ groupId: 1, inviteeId: 1, status: 1 }),
+    nextDatabase.collection("groupJoinRequests").createIndex({ groupId: 1, userId: 1, status: 1 }),
+    nextDatabase.collection("notifications").createIndex({ userId: 1, createdAt: -1 }),
+    nextDatabase.collection("conversations").createIndex({ participantKey: 1 }, { unique: true }),
+    nextDatabase.collection("messages").createIndex({ conversationId: 1, createdAt: 1 }),
+    nextDatabase.collection("bookmarks").createIndex({ postId: 1, userId: 1 }, { unique: true }),
+    nextDatabase.collection("bookmarks").createIndex({ userId: 1, createdAt: -1 }),
+  ]);
+  await nextDatabase.collection("posts").updateMany(
+    { category: { $nin: ["Технологи", "Амьдрал", "Урлаг", "Аялал", "Бодлого"] } },
+    { $set: { category: "Амьдрал" } },
+  );
+  return nextDatabase;
 }
 
 export async function nextId(collectionName: string): Promise<number> {

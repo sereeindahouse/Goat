@@ -1,3 +1,4 @@
+import type { Filter } from "mongodb";
 import type { Group, GroupInvite, GroupJoinRequest, GroupMember, GroupMemberRole, User } from "@db/schema";
 import { getDb, nextId } from "./connection";
 import { createNotifications } from "./notifications";
@@ -19,24 +20,30 @@ async function withOwner(group: Group): Promise<GroupWithOwner> {
   return { ...group, owner: owner!, memberCount };
 }
 
-export async function listGroups(_userId?: number) {
+export async function listGroups(user?: Pick<User, "id" | "role">) {
   const db = await getDb();
-  const groups = await db.collection<Group>("groups").find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+  const filter: Filter<Group> = user?.role === "admin"
+    ? {}
+    : user
+      ? { $or: [{ privacy: "public" }, { privacy: "private", ownerId: user.id }] }
+      : { privacy: "public" };
+  const groups = await db.collection<Group>("groups").find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   return Promise.all(groups.map(withOwner));
 }
 
-export async function getGroup(id: number, userId?: number) {
+export async function getGroup(id: number, user?: Pick<User, "id" | "role">) {
   const db = await getDb();
   const group = await db.collection<Group>("groups").findOne({ id }, { projection: { _id: 0 } });
   if (!group) return null;
-  const membership = await memberRole(id, userId);
-  if (group.privacy === "private" && !membership) {
+  const membership = await memberRole(id, user?.id);
+  const isAdmin = user?.role === "admin";
+  if (group.privacy === "private" && !membership && !isAdmin) {
     return { ...(await withOwner(group)), role: null, members: [], joinRequests: [] };
   }
   const members = await db.collection<GroupMember>("groupMembers").find({ groupId: id }, { projection: { _id: 0 } }).toArray();
   const users = await db.collection<User>("users").find({ id: { $in: members.map((item) => item.userId) } }, { projection: { _id: 0, passwordHash: 0 } }).toArray();
   const userMap = new Map(users.map((user) => [user.id, user]));
-  const joinRequests = membership && (membership.role === "owner" || membership.role === "admin")
+  const joinRequests = (isAdmin || (membership && (membership.role === "owner" || membership.role === "admin")))
     ? await db.collection<GroupJoinRequest>("groupJoinRequests").find({ groupId: id, status: "pending" }, { projection: { _id: 0 } }).toArray()
     : [];
   const requestUsers = await db.collection<User>("users").find({ id: { $in: joinRequests.map((item) => item.userId) } }, { projection: { _id: 0, id: 1, name: 1, avatar: 1 } }).toArray();
@@ -52,12 +59,12 @@ export async function getGroupForJoin(id: number, userId: number) {
   return { ...group, role: membership?.role ?? null };
 }
 
-export async function canViewGroupPosts(groupId: number, userId?: number) {
+export async function canViewGroupPosts(groupId: number, user?: Pick<User, "id" | "role">) {
   const db = await getDb();
   const group = await db.collection<Group>("groups").findOne({ id: groupId }, { projection: { _id: 0, privacy: 1 } });
   if (!group) return false;
-  if (group.privacy === "public") return true;
-  return !!(await memberRole(groupId, userId));
+  if (group.privacy === "public" || user?.role === "admin") return true;
+  return !!(await memberRole(groupId, user?.id));
 }
 
 export async function createGroup(data: { name: string; description: string; privacy: Group["privacy"]; coverImage?: string | null; ownerId: number }) {
@@ -66,7 +73,7 @@ export async function createGroup(data: { name: string; description: string; pri
   const group: Group = { id: await nextId("groups"), name: data.name, description: data.description, privacy: data.privacy, coverImage: data.coverImage ?? null, ownerId: data.ownerId, createdAt: now, updatedAt: now };
   await db.collection<Group>("groups").insertOne(group);
   await db.collection<GroupMember>("groupMembers").insertOne({ groupId: group.id, userId: data.ownerId, role: "owner", createdAt: now });
-  return getGroup(group.id, data.ownerId);
+  return getGroup(group.id, { id: data.ownerId, role: "user" });
 }
 
 export async function addMember(groupId: number, userId: number, role: GroupMemberRole = "member") {

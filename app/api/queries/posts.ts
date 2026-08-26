@@ -11,11 +11,12 @@ export type FeedPost = PostWithAuthor & {
 type CommentCount = { _id: number; value: number };
 type CommentPreview = Pick<Comment, "postId" | "content" | "createdAt"> & { author: Pick<User, "name" | "avatar"> };
 
-async function visibleGroupIds(userId?: number) {
+async function visibleGroupIds(user?: Pick<User, "id" | "role">) {
   const db = await getDb();
+  if (user?.role === "admin") return null;
   const publicGroups = await db.collection<Group>("groups").find({ privacy: "public" }, { projection: { _id: 0, id: 1 } }).toArray();
-  const memberships = userId
-    ? await db.collection<GroupMember>("groupMembers").find({ userId }, { projection: { _id: 0, groupId: 1 } }).toArray()
+  const memberships = user?.id
+    ? await db.collection<GroupMember>("groupMembers").find({ userId: user.id }, { projection: { _id: 0, groupId: 1 } }).toArray()
     : [];
   return [...new Set([...publicGroups.map((group) => group.id), ...memberships.map((membership) => membership.groupId)])];
 }
@@ -58,10 +59,11 @@ export async function withAuthorsAndCounts(rows: Post[]): Promise<FeedPost[]> {
   }));
 }
 
-export async function listPosts(limit = 60, userId?: number) {
+export async function listPosts(limit = 60, user?: Pick<User, "id" | "role">) {
   const db = await getDb();
-  const allowedGroupIds = await visibleGroupIds(userId);
-  const rows = await db.collection<Post>("posts").find({ $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).limit(limit).toArray();
+  const allowedGroupIds = await visibleGroupIds(user);
+  const visibility = allowedGroupIds === null ? {} : { $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] };
+  const rows = await db.collection<Post>("posts").find(visibility, { projection: { _id: 0 } }).sort({ createdAt: -1 }).limit(limit).toArray();
   return withAuthorsAndCounts(rows);
 }
 
@@ -71,17 +73,18 @@ export async function listGroupPosts(groupId: number, limit = 60) {
   return withAuthorsAndCounts(rows);
 }
 
-export async function findPostsByAuthor(authorId: number, userId?: number) {
+export async function findPostsByAuthor(authorId: number, user?: Pick<User, "id" | "role">) {
   const db = await getDb();
-  const allowedGroupIds = await visibleGroupIds(userId);
-  const rows = await db.collection<Post>("posts").find({ authorId, $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+  const allowedGroupIds = await visibleGroupIds(user);
+  const visibility = allowedGroupIds === null ? {} : { $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] };
+  const rows = await db.collection<Post>("posts").find({ authorId, ...visibility }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
   return withAuthorsAndCounts(rows);
 }
 
-export async function findRelatedPosts(category: string, excludeId: number, limit = 3, userId?: number) {
+export async function findRelatedPosts(category: string, excludeId: number, limit = 3, user?: Pick<User, "id" | "role">) {
   const db = await getDb();
-  const allowedGroupIds = await visibleGroupIds(userId);
-  const visibility = { $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] };
+  const allowedGroupIds = await visibleGroupIds(user);
+  const visibility = allowedGroupIds === null ? {} : { $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: { $in: allowedGroupIds } }] };
   const sameCategory = await db.collection<Post>("posts").find(
     { category, id: { $ne: excludeId }, ...visibility },
     { projection: { _id: 0 } },

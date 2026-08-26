@@ -23,10 +23,7 @@
         ├── groupRouter       ───► api/queries/groups.ts
         ├── messageRouter     ───► api/queries/messages.ts
         ├── notificationRouter───► api/queries/notifications.ts
-        └── aiRouter          ───► api/ai-service.ts ───► [ Google Gemini 3.6 Flash API ]
-                                                              │ (Fallback)
-                                                              ▼
-                                                        [ Local Ollama ]
+          └── aiRouter          ───► api/ai-service.ts ───► [ Local Ollama ]
         │
         ▼ (MongoDB Atlas / Replica Set)
 [ Collections: users, posts, bookmarks, postViews, postEndorsements, comments, guestbook, groups, messages, notifications... ]
@@ -44,7 +41,7 @@
 | **API & Data Layer** | **tRPC v11, SuperJSON, Zod** | End-to-end 100% Type-Safety, backend/frontend автомат type sync |
 | **Backend Server** | **Hono** | Хөнгөн жинтэй, өндөр бүтээмжтэй Node.js HTTP сервер |
 | **Database** | **MongoDB Atlas / Native Driver** | Баримтад суурилсан NoSQL өгөгдлийн сан, Compound Unique Index |
-| **AI Integration** | **Google Gemini 3.6 Flash** | Монгол хэлээр маш хурдан нийтлэл боловсруулах, хураангуйлах, чат |
+| **AI Integration** | **Local Ollama / Qwen2.5 1.5B** | API key болон cloud quota шаардалгүй Монгол хэлээр нийтлэл боловсруулах, хураангуйлах, чат |
 
 ---
 
@@ -86,7 +83,7 @@
 
 ---
 
-## 🧠 5. AI Архитектур (Google Gemini 3.6 Flash & Fallback)
+## 🧠 5. AI Архитектур (Local Ollama)
 
 AI систем нь `app/api/ai-service.ts` файлд төвлөрсөн бөгөөд 3 үндсэн үүрэгтэй:
 

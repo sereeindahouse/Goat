@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/SiteHeader";
 import { formatDate, readingTime, timeAgo } from "@/lib/blog";
 import type { Comment, User } from "@contracts/types";
-import { Pencil, Trash2, MessageSquare, Send, ThumbsUp, Eye, MessageCircle, Bookmark, Sparkles, Check, Copy } from "lucide-react";
+import { Pencil, Trash2, MessageSquare, Send, ThumbsUp, Eye, MessageCircle, Bookmark, Sparkles, Check, Copy, Loader2 } from "lucide-react";
 
 type CommentWithAuthor = Comment & { author: User };
 
@@ -329,9 +329,28 @@ export default function PostDetail() {
         <ArticleBody content={post.content} />
 
         <section style={{ marginTop: 36, padding: 18, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.04)" }}>
-          <button type="button" onClick={() => summarizePost.mutate({ title: post.title, content: post.content })} disabled={summarizePost.isPending} className="font-geist-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: "#e8e6e0", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 15px", fontSize: "0.72rem", letterSpacing: "0.1em" }}>
-            <Sparkles size={14} /> {summarizePost.isPending ? "УНШИЖ БАЙНА…" : "3 ГОЛ САНААГ УНШИХ"}
+          <button
+            type="button"
+            onClick={() => summarizePost.mutate({ title: post.title, content: post.content })}
+            disabled={summarizePost.isPending}
+            className="font-geist-mono"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: summarizePost.isPending ? "rgba(255,255,255,0.12)" : "transparent",
+              color: "#e8e6e0",
+              border: "1px solid rgba(255,255,255,0.3)",
+              padding: "10px 15px",
+              fontSize: "0.72rem",
+              letterSpacing: "0.1em",
+              cursor: "pointer",
+            }}
+          >
+            {summarizePost.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {summarizePost.isPending ? "AI УНШИЖ БАЙНА…" : "3 ГОЛ САНААГ УНШИХ"}
           </button>
+
           {summary && <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, color: "rgba(232,230,224,0.8)", margin: "16px 0 0" }}>{summary}</p>}
           {summarizePost.error && <p style={{ color: "#ff9a9a", fontSize: "0.75rem", margin: "12px 0 0" }}>{summarizePost.error.message}</p>}
         </section>

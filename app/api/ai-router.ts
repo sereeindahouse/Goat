@@ -17,10 +17,14 @@ export const aiRouter = createRouter({
   writingAssist: authedQuery
     .input(z.object({
       action: z.enum(["title", "excerpt", "proofread"] satisfies [WritingAssistAction, ...WritingAssistAction[]]),
-      title: z.string().max(255),
-      content: z.string().min(10).max(20000),
+      title: z.string().max(255).default(""),
+      content: z.string().max(25000).default(""),
     }))
     .mutation(async ({ input }) => {
+      const text = `${input.title} ${input.content}`.trim();
+      if (text.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "AI ашиглахын тулд гарчиг эсвэл агуулгад цөөн хэдэн үг бичнэ үү." });
+      }
       try {
         return await generateWritingAssist(input.action, input.title, input.content);
       } catch (error) {
