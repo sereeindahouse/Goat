@@ -47,6 +47,11 @@ export async function deleteUserById(requesterId: number, targetId: number) {
 
   await transferOwnedGroups(targetId);
   await db.collection<User>("users").deleteOne({ id: targetId });
+  await Promise.all([
+    db.collection("groupMembers").deleteMany({ userId: targetId }),
+    db.collection("groupInvites").deleteMany({ $or: [{ inviterId: targetId }, { inviteeId: targetId }] }),
+    db.collection("groupJoinRequests").deleteMany({ userId: targetId }),
+  ]);
   await compactUserIds();
   return "deleted" as const;
 }
