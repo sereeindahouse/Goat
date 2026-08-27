@@ -34,7 +34,7 @@ function GroupDirectory() {
           {isAuthenticated && <a className="groups-create-link" href="#create"><Plus size={16} /> GROUP ҮҮСГЭХ</a>}
         </header>
         <div className="groups-grid">
-          {groups.data?.map((group) => <Link className="group-tile" key={group.id} to={`/groups/${group.id}`}>{group.coverImage && <img src={group.coverImage} alt="" className="group-tile-image" />}<div className="group-tile-top"><span>{group.privacy === "private" ? <LockKeyhole size={15} /> : <Globe2 size={15} />}</span><span className="font-mono-data">{group.memberCount} гишүүн</span></div><h2>{group.name}</h2><p>{group.description || "Тайлбар оруулаагүй."}</p><small className="font-mono-data">үүсгэсэн: {group.owner.name ?? "Хэрэглэгч"}</small></Link>)}
+          {groups.data?.map((group) => <Link className="group-tile" key={group.id} to={`/groups/${group.id}`}>{group.coverImage && <img src={group.coverImage} alt="" className="group-tile-image" />}<div className="group-tile-top"><span>{group.privacy === "private" ? <LockKeyhole size={15} /> : <Globe2 size={15} />}</span><span className="font-mono-data">{group.memberCount} гишүүн</span></div><h2>{group.name}</h2><p>{group.description || "Тайлбар оруулаагүй."}</p><small className="font-mono-data">үүсгэсэн: {group.owner?.name ?? "Хэрэглэгч"}</small></Link>)}
         </div>
         {groups.isLoading && <div className="groups-state">Group-үүдийг уншиж байна...</div>}
         {groups.error && <div className="groups-state">Өгөгдлийн сангаас group уншиж чадсангүй.</div>}
