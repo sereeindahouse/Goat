@@ -43,7 +43,7 @@ export default function MainPage() {
           <div>
             <p className="font-mono-data main-feed-kicker">БЛОГСОР // MAIN PAGE</p>
             <h1>Бүх нийтлэл</h1>
-            <p className="main-feed-description">Блогсорын шинэ нийтлэлүүдийг нэг урсгалаар уншаарай.</p>
+            <p className="main-feed-description">Блогсорын шинэ нийтлэлүүдийг  уншаарай.</p>
           </div>
           <Link className="main-feed-write" to="/write">
             <ArrowUpRight size={16} /> НИЙТЛЭЛ БИЧИХ

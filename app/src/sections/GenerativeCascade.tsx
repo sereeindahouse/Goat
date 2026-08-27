@@ -348,7 +348,7 @@ export default function GenerativeCascade() {
           {!isLoading && !hasPosts && (
             <div style={{ gridColumn: '1 / -1', padding: 40 }}>
               <div className="font-geist-mono" style={{ fontSize: '1.3rem', color: '#000', marginBottom: 12 }}>
-                {error ? 'Өгөгдлийн сан холбогдоогүй байна.' : 'Анхны нийтлэлийг та бичээрэй.'}
+                {error ? 'Өгөгдлийн сан холбогдоогүй байна.' : 'Анхны нийтлэлээ та бичээрэй.'}
               </div>
               <div className="font-mono-data" style={{ fontSize: '0.7rem', color: 'rgba(0,0,0,0.45)', letterSpacing: '0.08em' }}>
                 {error ? 'MONGODB_URI-Г APP/.ENV ФАЙЛД ТОХИРУУЛНА УУ' : 'НЭВТЭРЧ ОРЖ "ШИНЭ НИЙТЛЭЛ" ДАРААРАЙ'}

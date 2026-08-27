@@ -32,7 +32,7 @@ export default function Guestbook() {
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         <div className="font-mono-data" style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "rgba(255,255,255,0.45)", marginBottom: 20 }}>ЗОЧДЫН МӨР · 001</div>
         <h1 className="font-geist-mono" style={{ fontSize: "clamp(2.4rem, 7vw, 6rem)", lineHeight: 0.95, fontWeight: 500, margin: "0 0 24px", maxWidth: 700 }}>Энд өөрийн мөрөө үлдээгээрэй.</h1>
-        <p style={{ color: "rgba(232,230,224,0.58)", maxWidth: 520, lineHeight: 1.7, marginBottom: 64 }}>Сэтгэгдэл, мэндчилгээ, эсвэл энэ орон зайд төрсөн бодлоо хуваалцаарай. Таны үг энд үлдэнэ.</p>
+        <p style={{ color: "rgba(232,230,224,0.58)", maxWidth: 520, lineHeight: 1.7, marginBottom: 64 }}>Сэтгэгдэл, мэндчилгээ, эсвэл өөрийн бодлоо хуваалцаарай. Та үгээ энд үлдэнэ.</p>
 
         <form className="guestbook-form" onSubmit={submit} style={{ borderTop: "1px solid rgba(255,255,255,0.18)", borderBottom: "1px solid rgba(255,255,255,0.18)", padding: "28px 0", display: "grid", gridTemplateColumns: "minmax(180px, 0.4fr) 1fr auto", gap: 16, alignItems: "end", marginBottom: 64 }}>
           <label className="font-mono-data" style={{ display: "grid", gap: 8, fontSize: "0.68rem", letterSpacing: "0.12em", color: "rgba(255,255,255,0.6)" }}>
