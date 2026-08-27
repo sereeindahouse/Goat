@@ -45,9 +45,27 @@ export async function deleteUserById(requesterId: number, targetId: number) {
     if (adminCount <= 1) return "last_admin" as const;
   }
 
+  await transferOwnedGroups(targetId);
   await db.collection<User>("users").deleteOne({ id: targetId });
   await compactUserIds();
   return "deleted" as const;
+}
+
+async function transferOwnedGroups(userId: number) {
+  const db = await getDb();
+  const ownedGroups = await db.collection<{ id: number }>("groups").find({ ownerId: userId }, { projection: { _id: 0, id: 1 } }).toArray();
+
+  for (const group of ownedGroups) {
+    const nextOwner = await db.collection<{ userId: number }>("groupMembers")
+      .find({ groupId: group.id, userId: { $ne: userId } }, { projection: { _id: 0, userId: 1 } })
+      .sort({ createdAt: 1, userId: 1 })
+      .limit(1)
+      .next();
+
+    if (!nextOwner) continue;
+    await db.collection("groups").updateOne({ id: group.id }, { $set: { ownerId: nextOwner.userId, updatedAt: new Date() } });
+    await db.collection("groupMembers").updateOne({ groupId: group.id, userId: nextOwner.userId }, { $set: { role: "owner" } });
+  }
 }
 
 async function compactUserIds() {
