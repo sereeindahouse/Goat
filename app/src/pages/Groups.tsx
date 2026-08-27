@@ -327,12 +327,12 @@ function GroupDetail({ id }: { id: number }) {
                 <article className="group-post" key={post.id}>
                   <div className="group-post-author">
                     <Avatar
-                      name={post.author.name}
-                      src={post.author.avatar}
+                      name={post.author?.name}
+                      src={post.author?.avatar}
                       size={34}
                     />
                     <span>
-                      <strong>{post.author.name ?? "Хэрэглэгч"}</strong>
+                      <strong>{post.author?.name ?? "Хэрэглэгч"}</strong>
                       <small className="font-mono-data">
                         {timeAgo(post.createdAt)}
                       </small>
